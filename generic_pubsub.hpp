@@ -57,15 +57,20 @@ namespace SPS {
             }
 
             void add_msg_queue(boost::shared_ptr<ConsumerProducerQueue<Msg>> queue) {
+                queue_vec_mutex.lock(); // cp_queue is thread safe, but the vector of it is not, hence need locks
                 msg_queues.push_back(queue);
+                queue_vec_mutex.unlock();
             }
 
             void set_msg(Msg msg) {
                 sps_writer_lock(msg_mutex);
                 this->message = msg;
+
+                queue_vec_mutex.lock(); // can't add queue and iterate queue at the same time
                 for(auto& queue: msg_queues) {
                     queue->produce(msg);
                 }
+                queue_vec_mutex.unlock();
             }
 
             Msg get_msg() { 
@@ -79,6 +84,7 @@ namespace SPS {
             
             boost::shared_mutex msg_mutex;
             static boost::shared_mutex table_mutex;
+            boost::shared_mutex queue_vec_mutex;
             std::string key;
 
             std::vector< boost::shared_ptr<ConsumerProducerQueue<Msg>> > msg_queues;

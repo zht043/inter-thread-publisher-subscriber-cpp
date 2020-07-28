@@ -4,7 +4,7 @@ default: trivial_example.exe # message_queue_example.exe observer_example.exe
 compiler = clang++
 #compiler = g++
 
-boostlib = -lboost_system -lboost_thread -lpthread 
+boostlib = -lboost_system -lboost_thread -lpthread -lboost_chrono
 
 std = -std=c++17
 
