@@ -23,22 +23,26 @@ unsigned int millis(void) {
     return (unsigned int)(double(t.time_since_epoch().count()) / 1000000.00f);
 }
 
-
+unsigned int micros(void) {
+    auto t = boost::chrono::high_resolution_clock::now();
+    return (unsigned int)(double(t.time_since_epoch().count()) / 1000.00f);
+}
 
 int main(int argc, char *argv[]) {
-
+    
     boost::thread pub_thread( []() {
         
         Publisher<std::string> pub1("Topic1", "Msg1");
         Publisher<double> pub2("Topic1", "Msg2");
-        
-        while(1) {
+        delay(1);
+
+        //while(1) {
             for(int i = 0; i < 100; i++) {
                 pub1.publish("Hello, I'm pub1: " + std::to_string(i));
                 pub2.publish(i + 0.888);    
-                delay_us(100); // publish one set of data at every 100 milliseconds   
+                delay(1); // publish one set of data at every 1 ms = 1000 us
             }
-        }
+        // }
     });
 
     auto sub_lambda = [](std::string file_name) {
@@ -55,8 +59,8 @@ int main(int argc, char *argv[]) {
         while(millis() - t0 < 100) {
             ss << "<==============================>" << std::endl;
             ss << "pub1: " << sub1.latest_msg() << std::endl;
-            ss << "pub2: " << sub2.latest_msg() << std::endl;
-            delay_us(10); // delay 10 microsecond
+            ss << "pub2: " << sub2.latest_msg() << std::endl;      
+            delay_us(10); // microseconds
         }
 
         file << ss.str();

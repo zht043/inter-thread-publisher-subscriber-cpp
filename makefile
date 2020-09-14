@@ -1,5 +1,5 @@
 
-default: trivial_example.exe # message_queue_example.exe observer_example.exe
+default: trivial_example.exe message_queue_example.exe # observer_example.exe
 
 compiler = clang++
 #compiler = g++
@@ -14,7 +14,7 @@ cppflags = $(std) $(boostlib)
 	$(compiler) -c $< 
 
 %.exe: %.o
-	$(compiler) -g -O0 -o  $@ $< $(cppflags) 
+	$(compiler) -g -o  $@ $< $(cppflags) 
 	@rm *.o
 	@echo compilation completed
 

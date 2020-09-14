@@ -26,11 +26,43 @@
 
 #define Default_Topic "DefaultTopic"
 
+
+
+
+
+
 namespace SPS {
+
+
+    /*
+     * 3 Modes
+     *  * Trivial Mode: msg channel only use 1 field to store the msg, every time a new msg
+     *      is sent from the publisher, the field gets overwritten, hence only the latest msg
+     *      is saved.
+     *  * Message Queue Mode: use a MQ to store a series of msgs, MQ is instantiated by subscriber
+     *      Each subscriber gets its own MQ. When MQ is full, the publisher thread is suspended until
+     *      the queue is consumed(pop) by a subscriber to give room for new msgs. Check cp_queue.hpp 
+     *      for implementation details of the consumer-producer queue.
+     *  * Signal & slots - essentially the same thing as the Observer Pattern:
+     *      Everytime a publisher sends a new message to its subscribers, the publisher invokes the callback
+     *      functions of the subcribers. Note that this way both the publisher & its subscribers run on the same
+     *      thread, unlike the other 2 modes. (of course there will be mutiple threads when having multiple publishers)
+     *      Difference between Signal & Slots and Observer pattern: 
+     *      * Signal & slots: utilizes function pointers for the user-defined callback functions
+     *      * observer pattern: utilizes virtual functions/OOP inheritance for the user-defined callback functions
+     */
+
+    /*
+     *  * MsgChannel utilizes a HashTable to manage messgaes
+     *  * publisher instantiates a MsgChannel
+     *  * subscriber contains constructors to instantiate a message queue
+     */
 
     template<class Msg>
     class MsgChannel {
         protected:
+
+            // unordered map == hash map
             typedef std::unordered_map<std::string, MsgChannel<Msg>*> msg_table_t;
         public:
 
@@ -57,20 +89,18 @@ namespace SPS {
             }
 
             void add_msg_queue(boost::shared_ptr<ConsumerProducerQueue<Msg>> queue) {
-                queue_vec_mutex.lock(); // cp_queue is thread safe, but the vector of it is not, hence need locks
+                sps_writer_lock(msg_mutex); 
                 msg_queues.push_back(queue);
-                queue_vec_mutex.unlock();
             }
 
             void set_msg(Msg msg) {
                 sps_writer_lock(msg_mutex);
                 this->message = msg;
-
-                queue_vec_mutex.lock(); // can't add queue and iterate queue at the same time
+                
                 for(auto& queue: msg_queues) {
                     queue->produce(msg);
                 }
-                queue_vec_mutex.unlock();
+
             }
 
             Msg get_msg() { 
@@ -84,7 +114,7 @@ namespace SPS {
             
             boost::shared_mutex msg_mutex;
             static boost::shared_mutex table_mutex;
-            boost::shared_mutex queue_vec_mutex;
+
             std::string key;
 
             std::vector< boost::shared_ptr<ConsumerProducerQueue<Msg>> > msg_queues;
@@ -167,6 +197,8 @@ namespace SPS {
 
 }
 
+
+// hash table storing messages with topic_name+msg_name as key
 template <class Msg>
 std::unordered_map<std::string, SPS::MsgChannel<Msg>*> SPS::MsgChannel<Msg>::msg_table;
 

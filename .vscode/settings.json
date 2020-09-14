@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "istream": "cpp",
-        "streambuf": "cpp"
+        "streambuf": "cpp",
+        "*.ipp": "cpp",
+        "sstream": "cpp"
     }
 }
