@@ -1,7 +1,5 @@
 /*
- * Simple Publisher Subscriber (SPS) C++ implementation
- * Template programming is used here, hence most part 
- * of the source code is in the header file
+ * An Inter-Thread Publisher Subscriber Pattern (ITPS) C++ implementation using boost library
  */
 
 
@@ -19,12 +17,12 @@
 
 /* Synchronization for Reader/Writer problems */
 // get exclusive access
-#define sps_writer_lock(mutex) do { \
+#define ITPS_writer_lock(mutex) do { \
     boost::upgrade_lock<boost::shared_mutex> __writer_lock(mutex); \
     boost::upgrade_to_unique_lock<boost::shared_mutex> __unique_writer_lock( __writer_lock ); \
 }while(0)
 // get shared access
-#define sps_reader_lock(mutex) boost::shared_lock<boost::shared_mutex>  __reader_lock(mutex); 
+#define ITPS_reader_lock(mutex) boost::shared_lock<boost::shared_mutex>  __reader_lock(mutex); 
 
 #define Default_Topic "DefaultTopic"
 
@@ -33,7 +31,7 @@
 
 
 
-namespace SPS {
+namespace ITPS {
 
 
     /*
@@ -83,7 +81,7 @@ namespace SPS {
         public:
 
             MsgChannel(std::string topic_name, std::string msg_name) {
-                sps_writer_lock(table_mutex);
+                ITPS_writer_lock(table_mutex);
                 this->key = topic_name + "." + msg_name;
                 // std::cout << key << std::endl;
                 
@@ -94,7 +92,7 @@ namespace SPS {
             }
 
             static MsgChannel *get_channel(std::string topic_name, std::string msg_name) {
-                sps_reader_lock(table_mutex);
+                ITPS_reader_lock(table_mutex);
                 std::string key = topic_name + "." + msg_name;
                 
                 // if key doesn't exist
@@ -105,7 +103,7 @@ namespace SPS {
             }
 
             void add_msg_queue(boost::shared_ptr<ConsumerProducerQueue<Msg>> queue) {
-                sps_writer_lock(msg_mutex); 
+                ITPS_writer_lock(msg_mutex); 
                 msg_queues.push_back(queue);
             }
 
@@ -114,7 +112,7 @@ namespace SPS {
             }
 
             void set_msg(Msg msg) {
-                sps_writer_lock(msg_mutex);
+                ITPS_writer_lock(msg_mutex);
                 this->message = msg;
                 
                 /* enqueue MQ*/
@@ -130,7 +128,7 @@ namespace SPS {
             }
 
             Msg get_msg() { 
-                sps_reader_lock(msg_mutex);
+                ITPS_reader_lock(msg_mutex);
                 return this->message;
             }
 
@@ -156,7 +154,7 @@ namespace SPS {
         public:
 
             Publisher(std::string topic_name, std::string msg_name) {
-                channel = boost::shared_ptr<SPS::MsgChannel<Msg>>(new SPS::MsgChannel<Msg>(topic_name, msg_name));
+                channel = boost::shared_ptr<ITPS::MsgChannel<Msg>>(new ITPS::MsgChannel<Msg>(topic_name, msg_name));
             }
 
             Publisher(std::string msg_name) : Publisher(Default_Topic, msg_name) {}
@@ -169,7 +167,7 @@ namespace SPS {
 
 
         protected:
-            boost::shared_ptr<SPS::MsgChannel<Msg>> channel;
+            boost::shared_ptr<ITPS::MsgChannel<Msg>> channel;
             
     };
 
@@ -256,7 +254,7 @@ namespace SPS {
 
 // hash table storing messages with topic_name+msg_name as key
 template <class Msg>
-std::unordered_map<std::string, SPS::MsgChannel<Msg>*> SPS::MsgChannel<Msg>::msg_table;
+std::unordered_map<std::string, ITPS::MsgChannel<Msg>*> ITPS::MsgChannel<Msg>::msg_table;
 
 template <class Msg>
-boost::shared_mutex SPS::MsgChannel<Msg>::table_mutex;
+boost::shared_mutex ITPS::MsgChannel<Msg>::table_mutex;

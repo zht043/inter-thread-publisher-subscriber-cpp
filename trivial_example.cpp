@@ -1,12 +1,12 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include "generic_pubsub.hpp"
+#include "inter_thread_pubsub.hpp"
 #include <boost/chrono.hpp>
 #include <boost/chrono/system_clocks.hpp>
 #include <boost/thread.hpp> 
 
-using namespace SPS;
+using namespace ITPS;
 using namespace std;
 
 //----- helper systime functions -----//
