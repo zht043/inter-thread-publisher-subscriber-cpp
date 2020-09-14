@@ -9,7 +9,7 @@
 using namespace SPS;
 using namespace std;
 
-
+//----- helper systime functions -----//
 void delay(unsigned int milliseconds) {
     boost::this_thread::sleep_for(boost::chrono::milliseconds(milliseconds));
 }
@@ -27,6 +27,7 @@ unsigned int micros(void) {
     auto t = boost::chrono::high_resolution_clock::now();
     return (unsigned int)(double(t.time_since_epoch().count()) / 1000.00f);
 }
+//------------------------------------//
 
 int main(int argc, char *argv[]) {
     

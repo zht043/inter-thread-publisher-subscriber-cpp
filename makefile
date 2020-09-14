@@ -1,5 +1,5 @@
 
-default: trivial_example.exe message_queue_example.exe # observer_example.exe
+default: trivial_example.exe message_queue_example.exe observer_func_ptr_example.exe
 
 compiler = clang++
 #compiler = g++
@@ -21,3 +21,4 @@ cppflags = $(std) $(boostlib)
 clean:
 	@rm -f *.exe
 	@rm -f *.o
+	@rm -f *.txt

@@ -12,6 +12,8 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <boost/thread/thread.hpp>
+#include <boost/signals2.hpp>
+
 #include "cp_queue.hpp"
 
 
@@ -43,21 +45,35 @@ namespace SPS {
      *      Each subscriber gets its own MQ. When MQ is full, the publisher thread is suspended until
      *      the queue is consumed(pop) by a subscriber to give room for new msgs. Check cp_queue.hpp 
      *      for implementation details of the consumer-producer queue.
-     *  * Signal & slots - essentially the same thing as the Observer Pattern:
+     *  * Observer Mode: 
      *      Everytime a publisher sends a new message to its subscribers, the publisher invokes the callback
      *      functions of the subcribers. Note that this way both the publisher & its subscribers run on the same
-     *      thread, unlike the other 2 modes. (of course there will be mutiple threads when having multiple publishers)
-     *      Difference between Signal & Slots and Observer pattern: 
-     *      * Signal & slots: utilizes function pointers for the user-defined callback functions
-     *      * observer pattern: utilizes virtual functions/OOP inheritance for the user-defined callback functions
+     *      thread, unlike the other 2 modes. (of course there will be multiple threads when having multiple publishers)
+     *      (usually observer pattern in java is implemented through class inheritance, but complication arises when
+     *       dealing with multithreading, so here we use function pointer & callback to implement the features of a observer pattern)
+     *      
+     * 
+     *      The publisher-subcriber pattern and the observer pattern are not the same, but highly related. Here we treat the 
+     *      observer pattern as a special case of the general pub-sub pattern. One big distinction between the 2 pattern is 
+     *      that pub-sub is anonymous, i.e. pub doesn't know which subs subcribed it, and vice versa, where in observer pattern
+     *      everything is transparent. Here small tricks are used to make observer pattern implementation "anonymous".
      */
 
     /*
      *  * MsgChannel utilizes a HashTable to manage messgaes
      *  * publisher instantiates a MsgChannel
      *  * subscriber contains constructors to instantiate a message queue
+     * 
+     *  * One important distinction between Trivial Mode and MQ Mode:
+     *      * Trivial mode's subcriber's getter function "Msg latest_msg(void)" 
+     *        is non-blocking, and might get garbage value when publisher hasn't published anything
+     *      * MQ mode's getter function "Msg pop_msg(void)" is conditionally blocking, when
+     *        the queue is empty, getter's thread gets blocked until something is published into the queue.
+     *        Similarly, when the queue is full, the publisher is blocked instead. 
      */
 
+
+    /* This class serves as a bridge between the Publisher class and the Subcribe class*/ 
     template<class Msg>
     class MsgChannel {
         protected:
@@ -93,12 +109,22 @@ namespace SPS {
                 msg_queues.push_back(queue);
             }
 
+            void add_slot(boost::function<void(Msg)> callback_function) {
+                callback_funcs.push_back(callback_function);
+            }
+
             void set_msg(Msg msg) {
                 sps_writer_lock(msg_mutex);
                 this->message = msg;
                 
+                /* enqueue MQ*/
                 for(auto& queue: msg_queues) {
                     queue->produce(msg);
+                }
+
+                /* invoke observer's callback functions */
+                for(auto& func: callback_funcs) {
+                    func(msg);
                 }
 
             }
@@ -118,7 +144,12 @@ namespace SPS {
             std::string key;
 
             std::vector< boost::shared_ptr<ConsumerProducerQueue<Msg>> > msg_queues;
+            std::vector< boost::function<void(Msg)> > callback_funcs;
     };
+
+
+
+
 
     template <class Msg>
     class Publisher {
@@ -162,11 +193,17 @@ namespace SPS {
             } 
             Subscriber(std::string msg_name, unsigned int queue_size) : Subscriber(Default_Topic, msg_name, queue_size){}
             
-
-
             ~Subscriber() {}
 
-            // blocking method, wait until a publisher construct such a channel
+
+
+
+            /* return true if finding a msg channel with matching key string.
+             * key = "topic_name.msg_name".
+             * the msg channel is created during the constructing phase
+             * of the corresponding publisher with the same key string.
+             * The MsgChannel object is stored in a internally global hash-map
+             */
             bool subscribe() {
                 channel = MsgChannel<Msg>::get_channel(topic_name, msg_name);
                 if(channel == nullptr) {
@@ -178,17 +215,36 @@ namespace SPS {
                 return true;
             }
 
+            // For Trivial Mode only
             Msg latest_msg() {
                 return channel->get_msg();
             }   
 
+            // For Message Queue Mode only
             Msg pop_msg() {
                 return msg_queue->consume();
             }
 
+            /* For Observer Mode: function pointer version.
+             *
+             * Add callback function to be invoked whenever 
+             * a new Msg is published to the msg channel. The 
+             * callback function should be of the format 
+             *  void func_name(Msg msg);
+             * where the msg param is the published message to be 
+             * handled in the callback.
+             * 
+             * must call subcribe() and get a return of true, before calling this function
+             */
+            bool add_on_published_callback(boost::function<void(Msg)> callback_function) {
+                if(channel == nullptr) return false;
+                channel->add_slot(callback_function);    
+                return true;            
+            }    
+
 
         protected:
-            MsgChannel<Msg> *channel;
+            MsgChannel<Msg> *channel = nullptr;
             boost::shared_ptr<ConsumerProducerQueue<Msg>> msg_queue;
             std::string topic_name, msg_name;
             bool use_msg_queue = false;
