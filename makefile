@@ -1,5 +1,5 @@
 
-default: trivial_example.exe message_queue_example.exe observer_func_ptr_example.exe
+default: trivial_example.exe message_queue_example.exe observer_func_ptr_example.exe observer_oop_example.exe
 
 compiler = clang++
 #compiler = g++
@@ -22,3 +22,9 @@ clean:
 	@rm -f *.exe
 	@rm -f *.o
 	@rm -f *.txt
+
+run-all:
+	./trivial_example.exe 
+	./message_queue_example.exe 
+	./observer_func_ptr_example.exe 
+	./observer_oop_example.exe
