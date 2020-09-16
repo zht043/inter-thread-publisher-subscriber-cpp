@@ -223,6 +223,11 @@ namespace ITPS {
                 return msg_queue->consume();
             }
 
+            // with time limit, if surpassing the timeout limit, return dft_rtn (default return value) 
+            Msg pop_msg(unsigned int timeout_ms, Msg dft_rtn) {
+                return msg_queue->consume(timeout_ms, dft_rtn);
+            }
+
             /* For Observer Mode: function pointer version.
              *
              * Add callback function to be invoked whenever 

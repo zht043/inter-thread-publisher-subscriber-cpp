@@ -5,6 +5,8 @@
 
 #include <boost/thread/thread.hpp>
 #include <queue>
+#include <boost/chrono.hpp>
+#include <boost/chrono/system_clocks.hpp>
 
 template <typename data_t> 
 class ConsumerProducerQueue {
@@ -31,7 +33,7 @@ class ConsumerProducerQueue {
         data_t consume() {
             mu.lock();
             while(is_empty()) {
-                // freeze this thread until queu is not empty
+                // freeze this thread until queue is not empty
                 cond_not_empty.wait(mu); 
             }
             data_t rtn = cp_queue.front();
@@ -41,6 +43,39 @@ class ConsumerProducerQueue {
             // when a datum is dequeued, the queue must be not-full, notify the producer to unlock wait
             cond_not_full.notify_all(); 
             return rtn;
+        }
+
+        /* Timed consume: on timeout (unit: milliseconds), return dft_rtn (default return value) */
+        data_t consume(unsigned int timeout_ms, data_t dft_rtn) {
+            boost::system_time const timeout = boost::get_system_time()+ boost::posix_time::milliseconds(timeout_ms);
+            bool fulfilled = true;
+            mu.lock();
+            while(is_empty()) {
+                // freeze this thread until queue is not empty or timed out
+                if(cond_not_empty.timed_wait(mu, timeout)) {
+                    // if wait returns due to condition being fulfilled
+                    fulfilled = true;
+                } 
+                else {
+                    // if wait returns due to time out
+                    fulfilled = false;
+                    break;
+                }
+            }
+
+            if(fulfilled) {
+                data_t rtn = cp_queue.front();
+                cp_queue.pop();
+                mu.unlock();
+
+                // when a datum is dequeued, the queue must be not-full, notify the producer to unlock wait
+                cond_not_full.notify_all(); 
+                return rtn;
+            }
+            else {
+                mu.unlock();
+                return dft_rtn;
+            }
         }
 
         bool is_full() const {
@@ -66,6 +101,12 @@ class ConsumerProducerQueue {
 
 
     private:
+
+        static unsigned int millis(void) {
+            auto t = boost::chrono::high_resolution_clock::now();
+            return (unsigned int)(double(t.time_since_epoch().count()) / 1000000.00f);
+        }
+
         boost::mutex mu;
         boost::condition_variable_any cond_not_full, cond_not_empty;
         std::queue<data_t> cp_queue;
